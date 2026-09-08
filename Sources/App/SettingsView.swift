@@ -103,9 +103,9 @@ enum Pref {
         ])
     }
 
-    /// Accent stored as RRGGBB hex; anything unparseable (including the old preset names and
-    /// the empty default) means stock white. Full colour range, user-picked exception to the
-    /// no-colored-chrome rule, sanctioned via this Settings page (2026-07-19).
+    /// Accent stored as RRGGBB hex; anything unparseable (including the empty default) means
+    /// stock white. Full colour range, the one user-picked exception to the no-colored-chrome
+    /// rule, and it is sanctioned only through this Settings page.
     static func color(for stored: String) -> Color {
         guard stored.count == 6, let v = UInt32(stored, radix: 16) else { return .white }
         return Color(red: Double((v >> 16) & 0xFF) / 255,
@@ -156,8 +156,7 @@ struct SettingsView: View {
     // Owned by the system, not UserDefaults — read back what's actually set.
     @State private var appIcon: String? = UIApplication.shared.alternateIconName
 
-    // Import moved here from the Library tab menu (2026-07-21): Settings is the one place
-    // that opens folders and files now.
+    // Settings is the one place that opens folders and files.
     enum ImportKind {
         case folder, files
         var types: [UTType] {

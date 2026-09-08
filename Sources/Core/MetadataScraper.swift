@@ -79,10 +79,10 @@ struct MetadataScraper {
                       releaseMBID: release?["id"] as? String)
     }
 
-    /// Lucene query for the recording search. Pure + testable. THE 2026-07-21 bug: an empty
-    /// artist used to emit `artist:""`, which matches nothing — every filename-parsed track
-    /// (artist unknown) failed, i.e. "fetch never worked". Empty fields are omitted now, and
-    /// embedded quotes are stripped so they can't break the query syntax.
+    /// Lucene query for the recording search. Pure + testable. Empty fields MUST be omitted:
+    /// `artist:""` matches nothing, so emitting it fails every filename-parsed track (artist
+    /// unknown) and reads as "fetch never worked". Embedded quotes are stripped so they can't
+    /// break the query syntax.
     static func buildQuery(title: String, artist: String, filename: String) -> String {
         func esc(_ s: String) -> String { s.replacingOccurrences(of: "\"", with: " ") }
         var parts: [String] = []

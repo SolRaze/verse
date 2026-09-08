@@ -102,10 +102,10 @@ final class Coordinator {
     }
     private struct SavedQueue: Codable { var items: [LibraryItem]; var index: Int }
 
-    /// Coalesced, the same way LibraryStore.save() is. Every queue mutation used to encode the
-    /// whole queue and write it synchronously on the main actor — and a LibraryItem carries a
-    /// security-scoped bookmark blob, so a long queue is not a small payload to re-encode on
-    /// every skip. Shuffling rewrote it once per element.
+    /// Coalesced, the same way LibraryStore.save() is. A LibraryItem carries a security-scoped
+    /// bookmark blob, so a long queue is not a small payload to re-encode; encoding it per
+    /// mutation on the main actor costs one full rewrite per skip, and one per element on a
+    /// shuffle.
     private var queueSaveTask: Task<Void, Never>?
 
     private func persistQueue() {
@@ -150,8 +150,8 @@ final class Coordinator {
         }
     }
 
-    /// AirPlay video holds a security scope on its file; released on the next play or stop
-    /// (issue #7 — previously never released, one leaked handle per video).
+    /// AirPlay video holds a security scope on its file; released on the next play or stop.
+    /// Miss the release and it leaks one handle per video (#7).
     private var scopedVideoURL: URL?
     private func releaseVideoScope() {
         scopedVideoURL?.stopAccessingSecurityScopedResource()

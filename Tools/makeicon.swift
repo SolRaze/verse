@@ -16,8 +16,8 @@ let size = 1024.0
 // "yandhi" — alternate icon after Reference/icon2.jpg (light MiniDisc): pale plate, pastel
 //   rainbow at that cover's angles, purple tape, silver hub. Posterised like the default.
 // "yeezus" — the default posterised drawing with the stops colour-corrected closer to
-//   Reference/icon.jpg. Same dark plate, same hard bands — a smooth-gradient version was
-//   drawn once and rejected (2026-07-19): posterised IS the icon's look.
+//   Reference/icon.jpg. Same dark plate, same hard bands — posterised IS the icon's look,
+//   never smooth-gradient it.
 let yandhi = style == "yandhi"
 let yeezus = style == "yeezus"
 
@@ -142,10 +142,10 @@ if style == "vinyl" {
             (330, 0.78, 0.65, 0.40),
             (350, 0.86, 0.60, 0.22),
         ]
-        // Pastel remap (2026-07-21 user request, YEEZUS ONLY): coloured stops soften toward
-        // yandhi's palette — saturation down, brightness up — while unlit (s == 0) sectors and
-        // the spokes stay dark. Classic keeps the original dark stops (pastelising both made
-        // Verse and Yeezus identical — reverted same day).
+        // Pastel remap, YEEZUS ONLY: coloured stops soften toward yandhi's palette —
+        // saturation down, brightness up — while unlit (s == 0) sectors and the spokes stay
+        // dark. Classic keeps its dark stops; pastelising both makes Verse and Yeezus
+        // identical.
         func pastel(_ stops: [(ang: Double, h: CGFloat, s: CGFloat, b: CGFloat)])
             -> [(ang: Double, h: CGFloat, s: CGFloat, b: CGFloat)] {
             stops.map { $0.s == 0 ? $0 : ($0.ang, $0.h, $0.s * 0.6, min(1, max($0.b, 0.45) + 0.30)) }

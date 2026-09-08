@@ -28,7 +28,7 @@ enum CollectionKind: String, CaseIterable, Hashable {
 struct ArtistRef: Hashable { let name: String }
 
 /// Hold-menu plumbing shared by every track list outside LibraryView: the Info sheet the
-/// shared ItemContextMenu drives (Edit/Move left the menu 2026-07-21).
+/// shared ItemContextMenu drives.
 struct TrackSheets: ViewModifier {
     @Binding var infoItem: LibraryItem?
 
@@ -140,8 +140,7 @@ struct CollectionPage: View {
 
     private var grouping: Grouping { Grouping(rawValue: groupingRaw) ?? .none }
 
-    /// Songs and favourites stay lists — a grid of text rows reads worse than a list and the
-    /// decision (2026-07-26) says so explicitly.
+    /// Songs and favourites stay lists — a grid of text rows reads worse than a list.
     private var gridCapable: Bool { kind == .albums || kind == .artists }
 
     var body: some View {

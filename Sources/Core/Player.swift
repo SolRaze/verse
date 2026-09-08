@@ -118,8 +118,8 @@ final class Player: NSObject {
         }
     }
 
-    /// `autoplay: false` loads the track paused — used to restore the last-playing item into Now
-    /// Playing on launch. `resumeToSaved` applies the track's saved position; OFF by default so a
+    /// `autoplay: false` loads the track paused — that is how the last-playing item is restored
+    /// into Now Playing on launch. `resumeToSaved` applies the track's saved position; OFF by default so a
     /// normal tap starts from the beginning (only the explicit Resume actions pass true). The
     /// position keeps being SAVED regardless (resumeKey), so Resume/launch have something to use.
     func load(_ item: Item, lyrics: Lyrics?, autoplay: Bool = true, resumeToSaved: Bool = false) {

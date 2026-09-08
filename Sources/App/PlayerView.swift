@@ -129,8 +129,8 @@ private struct NowPlayingPane: View {
     }
 
     /// Tap = like/unlike the current track; hold = the reaction strip, which picks the glyph the
-    /// button wears (`Pref.likeGlyph`). Bare, no glass — glass is the top options button only
-    ///. Sits where the options menu used to, right of the title.
+    /// button wears (`Pref.likeGlyph`). Bare, no glass — glass is the top options button only.
+    /// Sits right of the title.
     private var favouriteButton: some View {
         let item = coordinator.nowPlayingItem
         let liked = item.map { i in library.items.first { $0.id == i.id }?.liked ?? i.liked } ?? false
@@ -262,8 +262,8 @@ private struct NowPlayingPane: View {
         .padding(.top, 12)
     }
 
-    /// Apple Music's bottom row: lyrics, sleep timer, AirPlay, queue — plus Share, which used to
-    /// sit on its own row below. Plain glyphs, no glass (note: glass is the top button only).
+    /// Apple Music's bottom row: lyrics, sleep timer, AirPlay, queue, Share.
+    /// Plain glyphs, no glass — glass is the top button only.
     private var bottomRow: some View {
         HStack {
             Button { withAnimation(.snappy) { showLyrics = true } } label: {

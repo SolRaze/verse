@@ -1,4 +1,4 @@
-# Verse — the brief
+verse — the brief
 
 iphone 17e, ios 26. swift 6, swiftui. sideloaded, one user, thats me. no app store, no accounts,
 no analytics, no onboarding. no settings screen for a setting that dont matter.
@@ -6,7 +6,7 @@ no analytics, no onboarding. no settings screen for a setting that dont matter.
 read `README.md` first. the carplay limits in there are facts, not opinions. if something below
 looks like it fights them, the limits win.
 
-## scope
+scope
 
 1. play any media file from files app — audio or video, any container, any codec.
 2. play youtube without ads.
@@ -16,7 +16,7 @@ looks like it fights them, the limits win.
 anything off that list is out of scope. no playlists of playlists, no cloud sync, no themes, no
 library database past what it takes to find a file again.
 
-## 1. playback engine
+1. playback engine
 
 **MobileVLCKit** runs everything except one carve out. vlc decodes mp3, aac, alac, flac, opus, ogg,
 wav, aiff, wma, ape, m4a, mp4, mkv, avi, mov, webm, hls and the long tail. one engine means one now
@@ -40,7 +40,7 @@ preference. routing rule is `AirPlayVideoPlayer.canAirPlay(url)`: avplayer compa
 - seek, rate, next/prev driven from `MPRemoteCommandCenter` too, not just the ui. wheel buttons go
   thro the remote command center.
 
-## 2. files
+2. files
 
 - `UIDocumentPickerViewController` (`.open`, multiple) for import. keep **security scoped
   bookmarks**, not paths. paths go stale and the app loses access after a relaunch — thats the bug
@@ -53,7 +53,7 @@ preference. routing rule is `AirPlayVideoPlayer.canAirPlay(url)`: avplayer compa
 - persistence is one `Codable` array in a json file. not core data, not swiftdata, not sqlite. its
   a small personal library, it fits in memory.
 
-## 3. lyrics
+3. lyrics
 
 `Sources/Core/Lyrics.swift` is written — lrc parser and LRCLIB client. wire it up.
 
@@ -72,7 +72,7 @@ cache resolved lyrics on disk keyed by the tracks stable id, so the car aint wai
 i drop `.lrc` files in directly too. treat that import as "attach to the track whose basename
 matches". if nothing matches, keep it unattached and let me pick.
 
-## 4. youtube
+4. youtube
 
 - extraction is **YouTubeKit** (`github.com/alexeichhorn/YouTubeKit`, spm). ask for streams, take
   highest bitrate audio only for the car, or a muxed/adaptive video stream for the phone.
@@ -87,7 +87,7 @@ matches". if nothing matches, keep it unattached and let me pick.
 - extraction fails often. surface the error. never crash, never show a blank player like nothings
   wrong.
 
-## 4b. video on the car screen
+4b. video on the car screen
 
 limits are in the readme. implementation is done (`AirPlayVideo.swift`). whats left is ui:
 
@@ -100,7 +100,7 @@ limits are in the readme. implementation is done (`AirPlayVideo.swift`). whats l
 - dont build toward the ios 27 carplay video app entitlement (browse ui on the car). it needs
   apples per app approval, and a sideloaded youtube extractor wont get it.
 
-## 5. carplay — the subtle part
+5. carplay — the subtle part
 
 `Sources/Core/NowPlaying.swift` is written. two jobs:
 
@@ -124,7 +124,7 @@ rough edges — test in the real car, not the simulator:
 theres no `CPTemplateApplicationSceneDelegate` here. if you start writing one, you wandered onto
 the entitlement path. stop.
 
-## 6. widget, live activity, lock screen
+6. widget, live activity, lock screen
 
 three surfaces, three different capabilities. dont mix them up.
 
@@ -158,7 +158,7 @@ start case), `VerseWidget`s `LyricLiveActivity` renders it.
 **carplay dont show third party widgets.** the dashboard is apples, no public api. the now playing
 screen stays the whole carplay surface.
 
-## verification
+verification
 
 this is a driving app and i cant debug it at 70mph, so:
 
@@ -171,7 +171,7 @@ this is a driving app and i cant debug it at 70mph, so:
 - manual: plug into the car. check play/pause from the wheel, scrubber accuracy, and whether
   artwork refreshes per line on that head unit.
 
-## conventions
+conventions
 
 - a dependency gets added only if it deletes more code than it costs. list is final: MobileVLCKit,
   YouTubeKit. everything else is foundation/avfoundation/mediaplayer/swiftui.

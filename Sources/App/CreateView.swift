@@ -142,8 +142,7 @@ struct CreatePage: View {
                     .offset(x: 8, y: -8)
                 }
             }
-            // On the bottom-right curved corner, where a resize grip is expected — it used to sit
-            // halfway up the right edge.
+            // On the bottom-right curved corner, where a resize grip is expected.
             .overlay(alignment: .bottomTrailing) {
                 if editing {
                     ResizeBumper(colStep: colW + gap, rowStep: colW + gap) { dCols, dRows in

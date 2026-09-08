@@ -1,8 +1,8 @@
 import XCTest
 @testable import Verse
 
-/// Most-played tie-break (#6): equal play counts used to come out of a `Dictionary`, so the #1
-/// album could swap between renders. Rule is plays, then most recent play, then name A→Z.
+/// Most-played tie-break (#6). Rule is plays, then most recent play, then name A→Z — without
+/// it, equal play counts fall out of a `Dictionary` and the #1 album swaps between renders.
 @MainActor
 final class RankingTests: XCTestCase {
 
@@ -98,9 +98,9 @@ final class CollectionSectionTests: XCTestCase {
                           source: .file(bookmark: Data()), isVideo: false)
     }
 
-    /// The grid used to filter every item once per artist name. Collapsing that to one grouping
-    /// pass has to preserve three things: which names appear, the count under each, and *which*
-    /// item supplies the cover — the first in library order, not an arbitrary group member.
+    /// One grouping pass, not a filter per artist name. It must preserve three things: which
+    /// names appear, the count under each, and *which* item supplies the cover — the first in
+    /// library order, not an arbitrary group member.
     func testArtistRowsKeepCountsAndTakeFirstItemAsCover() {
         let first = track("one", by: "Boards")
         let second = track("two", by: "Boards")

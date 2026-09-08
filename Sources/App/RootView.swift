@@ -38,9 +38,9 @@ struct RootView: View {
             SwiftUI.Tab("Library", systemImage: "music.note.list", value: Tab.library) {
                 LibraryView()
             }
-            // Create is NOT in the dock (2026-07-21): it's a hidden page — triple-tap the Home
-            // title to unlock, then swipe right on Home to open it (see HomeView).
-            // Settings pushes from Library's top-left gear (2026-07-21) — no dock tab.
+            // Create is NOT in the dock: it's a hidden page — triple-tap the Home title to
+            // unlock, then swipe right on Home to open it (see HomeView).
+            // Settings pushes from Library's top-left gear — no dock tab.
             // role: .search puts this in the dock's own search pill, Files-app style.
             SwiftUI.Tab(value: Tab.search, role: .search) {
                 SearchView()

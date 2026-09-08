@@ -83,7 +83,7 @@ struct HomeView: View {
     }
 
     /// Shelf header: name, plus the minus badge while editing. The whole row is the hold target —
-    /// without an explicit content shape the press only lands on the glyphs (2026-07-21).
+    /// without an explicit content shape the press only lands on the glyphs.
     private func shelfHeader(_ id: String) -> some View {
         HStack(spacing: 8) {
             if editingHome { LayoutMinusBadge { remove(id) } }
@@ -121,9 +121,8 @@ struct HomeView: View {
                         // In the flow, not an overlay: as an overlay it drew *behind* the tiles,
                         // which reads as a rendering fault rather than an empty library.
                         emptyState
-                        // Always offered once Home is bare. Removing the last item used to strand
-                        // you: the button only existed in edit mode, and the hold that enters edit
-                        // mode had nothing left to land on.
+                        // Always offered once Home is bare: the hold that enters edit mode needs
+                        // something to land on, so an edit-mode-only button would strand you.
                         if editingHome || placed.isEmpty { addButton }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -381,7 +380,7 @@ struct HomeView: View {
         .modifier(ReorderDrag(id: id, active: editingHome) { moveShelf($0, before: id) })
     }
 
-    /// The inset card a `List` used to draw, by hand: same fill, same hairlines between rows.
+    /// The inset card by hand: same fill and hairlines a `List` draws, without the list.
     private func shelfCard<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
         VStack(spacing: 0) { content() }
             .background(.white.opacity(0.06),
@@ -437,9 +436,9 @@ struct HomeView: View {
         }
     }
 
-    /// Two-up grid of most-played albums (2026-07-21, was rows).
+    /// Two-up grid of most-played albums.
     /// Read `artworkVersion` at the call site too, not only in here — the helper's read alone
-    /// didn't reliably register the dependency (2026-07-21).
+    /// does not reliably register the dependency.
     private func albumCover(_ name: String) -> some View {
         let _ = library.artworkVersion
         let src = library.items.first {
@@ -577,7 +576,7 @@ struct NowPlayingCard: View {
     }
 }
 
-/// The dock's search pill (Files-app style). Same flat title/artist match Home used to host.
+/// The dock's search pill (Files-app style). Flat title/artist match.
 struct SearchView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(Coordinator.self) private var coordinator

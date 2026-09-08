@@ -5,8 +5,8 @@ import UIKit
 /// library item id. Rows read it synchronously from an in-memory cache; the disk file is the
 /// backing store so it survives relaunches without re-decoding every media file.
 ///
-/// 600px jpegs since 2026-07-21 (was 200) — the player pane and CarPlay canvas draw the same
-/// cached file, and 200px looked soft there. Rows still render it at 28–56pt happily.
+/// 600px jpegs: the player pane and CarPlay canvas draw the same cached file and go soft below
+/// that. Rows render it down at 28–56pt happily.
 enum Artwork {
     // NSCache is internally synchronized; the compiler just can't see it.
     nonisolated(unsafe) private static let cache = NSCache<NSString, UIImage>()

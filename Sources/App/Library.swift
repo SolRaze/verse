@@ -551,7 +551,7 @@ final class LibraryStore {
             .split(separator: "\n").map(String.init))
     }
 
-    /// Online enrichment, grouped by album (2026-07-21): a multi-track album gets ONE release
+    /// Online enrichment, grouped by album: a multi-track album gets ONE release
     /// lookup — tracklist (disc/track numbers) + one hi-res cover shared across the folder —
     /// instead of a per-song recording search. Genuine singles (a one-track group) still go
     /// through the recording search. `force` = a Fetch button tap (bypasses the toggle, clears

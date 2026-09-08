@@ -5,7 +5,7 @@ struct LibraryView: View {
     @Environment(LibraryStore.self) private var library
     @Environment(PlaylistStore.self) private var playlists
     @Environment(Coordinator.self) private var coordinator
-    // Fast import access back in Library (2026-07-21, "Import From"); Settings keeps its own.
+    // Fast import access in Library ("Import From"); Settings keeps its own.
     @State private var showingImport = false
     @State private var importKind: SettingsView.ImportKind = .files
     @State private var linkText = ""
@@ -60,9 +60,9 @@ struct LibraryView: View {
             // `Reference/music-library.png`; the compression that came with it went too far, and
             // Library reading like the homepage matters more than matching that screenshot.
             .listStyle(.insetGrouped)
-            // Apple's default row height, restored (#13). The 36pt override that used to live
-            // here is what forced the opt-outs scattered through this file — they went with it.
-            // No search here — the dock's search pill owns search now.
+            // Apple's default row height (#13). Never pin it: a fixed height forces row-by-row
+            // opt-outs through the whole file.
+            // No search here — the dock's search pill owns search.
             // Same shape as Home: big label on top.
             .navigationTitle("Library")
             .navigationBarTitleDisplayMode(.large)
@@ -269,12 +269,11 @@ struct LibraryView: View {
     }
 
     /// Recently Added, expanded inline — the tracks most recently imported, with the shared hold
-    /// menu (#10, user misspoke and wanted Added).
+    /// menu (#10 — Added, not Played).
     ///
-    /// Body is 1:1 with `HomeView.recentlyAddedSection` (#13), down to the 6-row cap — the two
-    /// surfaces showing the same shelf differently was the complaint. The row-height and inset
-    /// opt-outs that used to sit here only existed to fight the list's 36pt compression, which is
-    /// gone.
+    /// Body is 1:1 with `HomeView.recentlyAddedSection` (#13), down to the 6-row cap: the two
+    /// surfaces must show the same shelf the same way. No row-height or inset opt-outs here —
+    /// they only exist to fight a pinned row height, and there is none.
     @ViewBuilder private var recentlyAddedSection: some View {
         let recent = library.items
             .sorted { ($0.dateAdded ?? .distantPast) > ($1.dateAdded ?? .distantPast) }
@@ -769,8 +768,7 @@ struct MiniPlayerBar: View {
 
 // MARK: -
 
-/// Shared context menu for a track, identical everywhere (2026-07-21 rework: Edit / Move /
-/// Fetch Metadata are gone — playlists and lyrics moved in).
+/// Shared context menu for a track, identical everywhere: playlists and lyrics.
 struct ItemContextMenu: View {
     @Environment(LibraryStore.self) private var library
     @Environment(Coordinator.self) private var coordinator
