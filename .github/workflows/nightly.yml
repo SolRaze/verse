@@ -1,0 +1,36 @@
+name: nightly
+
+# Every push produces a downloadable ipa. Same script the phone build uses, so CI and local
+# cannot drift — it skips the device-copy step on its own when CI is set.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  ipa:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # nightly.sh versions off `git rev-list --count HEAD`; a shallow clone counts wrong.
+          fetch-depth: 0
+
+      - name: Select newest Xcode
+        run: sudo xcode-select -s "$(ls -d /Applications/Xcode*.app | sort -V | tail -1)"
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build unsigned ipa
+        run: ./Tools/nightly.sh
+
+      - name: Read build number
+        id: v
+        run: echo "build=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Verse-n${{ steps.v.outputs.build }}
+          path: build/ipa/*.ipa
+          if-no-files-found: error
+          retention-days: 30

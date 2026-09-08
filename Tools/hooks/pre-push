@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# Every push ships a nightly. The version derives from the commit count, so pushing is the bump —
+# there is nothing to write back into the tree and no bump commit to chase.
+#
+# Backgrounded on purpose: a push must not block on a full Release build. Watch build/nightly.log.
+# Set VERSE_NO_NIGHTLY=1 to skip it for one push.
+[ -n "${VERSE_NO_NIGHTLY:-}" ] && exit 0
+
+root=$(git rev-parse --show-toplevel)
+mkdir -p "$root/build"
+nohup "$root/Tools/nightly.sh" >"$root/build/nightly.log" 2>&1 &
+echo "nightly building in background -> build/nightly.log"
+exit 0

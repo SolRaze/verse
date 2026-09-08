@@ -1,0 +1,12 @@
+Pods/
+*.xcodeproj
+*.xcworkspace
+Info.plist
+.DS_Store
+DerivedData/
+reference.jpg
+reference/
+Reference/
+verse-inbox*.md
+verse-prompt.md
+build/

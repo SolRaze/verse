@@ -1,0 +1,134 @@
+name: Verse
+options:
+  bundleIdPrefix: com.sol          # change to yours
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: J7C26745B5
+    CODE_SIGN_STYLE: Automatic
+    # Every build here is a nightly, so the version is derived from git rather than stored:
+    # `Tools/nightly.sh` passes the commit date and `git rev-list --count HEAD` to xcodebuild.
+    # Nothing to bump by hand, and no bump commit to forget before a push. These two values are
+    # only the fallback for a plain `xcodebuild build` that skips the script.
+    MARKETING_VERSION: "0.0.0"
+    CURRENT_PROJECT_VERSION: "0"
+
+packages:
+  YouTubeKit:
+    url: https://github.com/alexeichhorn/YouTubeKit
+    from: 0.2.0
+  # Community SPM repackage of VLCKit 3.6.0 — the official CocoaPods binary lives on
+  # download.videolan.org, which this network's upstream filter blocks outright. Binary is
+  # checksum-pinned in the package manifest and fetched from GitHub releases.
+  VLCKitSPM:
+    url: https://github.com/tylerjonesio/vlckit-spm
+    exactVersion: 3.6.0
+
+schemes:
+  Verse:
+    build:
+      targets:
+        Verse: all
+    test:
+      targets: [VerseTests, VerseUITests]
+
+targets:
+  Verse:
+    type: application
+    platform: iOS
+    settings:
+      base:
+        # Alternate app icons (Settings > Appearance > App Icon).
+        ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIcon-Yandhi AppIcon-Yeezus
+        ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
+    sources:
+      - Sources/App
+      - Sources/Core
+      - Assets
+    dependencies:
+      - package: YouTubeKit
+      - package: VLCKitSPM
+        product: VLCKitSPM
+      - target: VerseWidget
+        embed: true
+    entitlements:
+      path: Verse.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.sol.verse]
+    info:
+      path: Info.plist
+      properties:
+        # The build number rides in the name so the running nightly is identifiable at a glance —
+        # LiveContainer lists its guests by display name, and several nightlies sit there at once.
+        # "n" not "nightly": the home screen truncates a label past ~12 characters.
+        CFBundleDisplayName: "Verse n$(CURRENT_PROJECT_VERSION)"
+        # Without these two, xcodegen writes its own 1.0/1 literals and the settings above never
+        # reach the bundle — the name would say n115 while About said 1.0.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        UILaunchScreen: {}
+        # Per-line lyrics Live Activity (SPEC §6).
+        NSSupportsLiveActivities: true
+        # Background audio. Without this there is no lock screen and no CarPlay.
+        UIBackgroundModes: [audio]
+        # Let Files.app and a Mac drop media straight into the app.
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Media
+            LSHandlerRank: Alternate
+            LSItemContentTypes: [public.audio, public.movie, public.data]
+        NSAppTransportSecurity:
+          # YouTube/LRCLIB/SponsorBlock are all https; VLC may hit http media in the wild.
+          NSAllowsArbitraryLoads: true
+
+  VerseWidget:
+    type: app-extension
+    platform: iOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sol.Verse.Widget   # appex ids must nest under the app's
+    sources:
+      - Sources/Widget
+      - Sources/Core/Snapshot.swift       # shared across the process boundary
+      - Sources/Core/Intents.swift        # intents visible to both targets, run in app process
+      - Sources/Core/LyricActivity.swift  # activity attributes, rendered here, driven by app
+    entitlements:
+      path: VerseWidget.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.sol.verse]
+    info:
+      path: WidgetInfo.plist
+      properties:
+        CFBundleDisplayName: "Verse n$(CURRENT_PROJECT_VERSION)"
+        # An appex whose version drifts from its host app fails installd validation.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  VerseTests:
+    type: bundle.unit-test
+    platform: iOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    sources: [Tests]
+    dependencies:
+      - target: Verse
+
+  # Only for gestures no unit test can observe — the interactive pop (issue #5). Everything
+  # testable without a touch stays in VerseTests, which is far faster.
+  VerseUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+    sources: [UITests]
+    dependencies:
+      - target: Verse
