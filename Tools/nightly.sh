@@ -15,7 +15,7 @@ cd "$(dirname "$0")/.."
 
 DEVICE="${VERSE_DEVICE:-8401270A-D055-5339-B34C-CE4CF673365B}"   # deuce, iPhone 17e
 LC_BUNDLE="${VERSE_LC_BUNDLE:-com.kdt.livecontainer.J7C26745B5}"
-APP_BUNDLE="${VERSE_APP_BUNDLE:-com.sol.Verse}"
+APP_BUNDLE="${VERSE_APP_BUNDLE:-com.sol.verse}"
 PORT="${VERSE_PORT:-8787}"
 
 # Derived, never stored. The commit count only ever goes up, so every commit is already a bump

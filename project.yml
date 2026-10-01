@@ -42,6 +42,7 @@ targets:
     platform: iOS
     settings:
       base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sol.verse
         # Alternate app icons (Settings > Appearance > App Icon).
         ASSETCATALOG_COMPILER_ALTERNATE_APPICON_NAMES: AppIcon-Yandhi AppIcon-Yeezus
         ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS: YES
@@ -91,7 +92,7 @@ targets:
     platform: iOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sol.Verse.Widget   # appex ids must nest under the app's
+        PRODUCT_BUNDLE_IDENTIFIER: com.sol.verse.Widget   # appex ids must nest under the app's
     sources:
       - Sources/Widget
       - Sources/Core/Snapshot.swift       # shared across the process boundary
