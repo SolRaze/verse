@@ -369,9 +369,19 @@ struct CollectionPage: View {
                         .map(tile))
                 }
         }
-        let names = sort == .mostPlayed
-            ? groups.keys.sorted { plays($0) > plays($1) }
-            : groups.keys.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        func newest(_ name: String, _ date: KeyPath<LibraryItem, Date?>) -> Date {
+            groups[name]?.compactMap { $0[keyPath: date] }.max() ?? .distantPast
+        }
+        let alphabetical = groups.keys
+            .sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+        // An album's date is its most recent track's. The stable sort keeps the alphabetical
+        // order among albums that tie, which is every unplayed one under Last Played.
+        let names: [String] = switch sort {
+        case .mostPlayed: alphabetical.sorted { plays($0) > plays($1) }
+        case .dateAdded: alphabetical.sorted { newest($0, \.dateAdded) > newest($1, \.dateAdded) }
+        case .lastPlayed: alphabetical.sorted { newest($0, \.lastPlayed) > newest($1, \.lastPlayed) }
+        case .title, .artist: alphabetical
+        }
         return [GridSection(title: "", tiles: names.map(tile))]
     }
 

@@ -23,6 +23,15 @@ struct RootView: View {
             .fullScreenCover(isPresented: $iPodMode) {
                 IPodView(player: coordinator.player)
             }
+            // Here, not on one tab: a play can fail from Home, Search, the queue or the player.
+            .overlay { if coordinator.busy { ProgressView().controlSize(.large) } }
+            .alert("Something failed", isPresented: .init(
+                get: { coordinator.lastError != nil },
+                set: { if !$0 { coordinator.lastError = nil } })
+            ) { Button("OK", role: .cancel) {} } message: {
+                Text(coordinator.lastError ?? "")
+            }
+            .onOpenURL { coordinator.open(external: $0) }
             .onChange(of: coordinator.deepLink) { _, link in
                 if link != nil { tab = .library }
             }

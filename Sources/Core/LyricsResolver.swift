@@ -4,12 +4,17 @@ import Foundation
 /// The resolution chain from SPEC §3: sidecar .lrc → embedded tag → LRCLIB → nothing.
 /// Results cache to disk so the car isn't waiting on network.
 enum LyricsResolver {
+    /// Recreated on every lookup only when missing: Clear Caches deletes the folder under a
+    /// running app, and a `static let` would then point at nothing.
     private static var cacheDir: URL {
-        let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("lyrics", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        if !FileManager.default.fileExists(atPath: cacheRoot.path) {
+            try? FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        }
+        return cacheRoot
     }
+    private static let cacheRoot = FileManager.default
+        .urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("lyrics", isDirectory: true)
 
     /// `cacheKey` must be stable per track (library item UUID).
     static func resolve(mediaURL: URL?, title: String, artist: String,
@@ -31,12 +36,47 @@ enum LyricsResolver {
         // LRCLIB (lrclib.net — tranxuanthang/lrclib public instance).
         let client = LRCLibClient()
         let query = LRCLibClient.Query(track: title, artist: artist, duration: duration)
-        if let lyrics = try? await client.fetch(query), let raw = rawText(of: lyrics) {
+        if let lyrics = try? await client.fetch(query), let raw = lyrics.lrcText {
             try? raw.write(to: cacheFile, atomically: true, encoding: .utf8)
             return lyrics
         }
         try? "".write(to: cacheFile, atomically: true, encoding: .utf8)  // negative cache
         return nil
+    }
+
+    /// Word timing for a track whose cached lyrics have none, from `WordLyricsClient`. Runs after
+    /// `resolve`, so the line-timed lyrics are already on screen. One answer per track: a miss
+    /// or a mismatched cut leaves a `.noword` marker beside the cache file, and Clear Caches is
+    /// the retry. A failed fetch leaves no marker, so the next play asks again.
+    /// Returns the upgraded lyrics, or nil when nothing changed.
+    static func upgradeWords(title: String, artist: String, duration: TimeInterval?,
+                             cacheKey: String) async -> Lyrics? {
+        guard UserDefaults.standard.bool(forKey: Pref.wordLyrics) else { return nil }
+        let marker = cacheDir.appendingPathComponent(cacheKey + ".noword")
+        guard !FileManager.default.fileExists(atPath: marker.path) else { return nil }
+        let held = cachedRaw(for: cacheKey).flatMap { $0.isEmpty ? nil : LRCParser.parse($0) }
+        if held?.hasWordTiming == true { return nil }
+
+        switch await WordLyricsClient.fetch(track: title, artist: artist, duration: duration) {
+        case .failed:
+            return nil
+        case .found(let raw):
+            let found = LRCParser.parse(raw)
+            if found.hasWordTiming, found.sameCut(as: held) {
+                try? raw.write(to: cacheDir.appendingPathComponent(cacheKey + ".lrc"),
+                               atomically: true, encoding: .utf8)
+                return found
+            }
+        case .miss:
+            break
+        }
+        markNoWords(cacheKey: cacheKey)
+        return nil
+    }
+
+    /// Stops `upgradeWords` touching this track again: a miss, or lyrics the user chose.
+    static func markNoWords(cacheKey: String) {
+        try? Data().write(to: cacheDir.appendingPathComponent(cacheKey + ".noword"))
     }
 
     /// Raw cached text for a track — "" means a cached miss. For the sidecar export.
@@ -75,7 +115,7 @@ enum LyricsResolver {
         }
     }
 
-    /// User dropped an .lrc by hand — attach it to a track and cache it.
+    /// Caches lyrics for a track: an imported sidecar, or a hand pick via `LibraryStore.attachLyrics`.
     static func attach(lrcText: String, cacheKey: String) {
         try? lrcText.write(to: cacheDir.appendingPathComponent(cacheKey + ".lrc"),
                            atomically: true, encoding: .utf8)
@@ -99,16 +139,5 @@ enum LyricsResolver {
             if let text = try? await item.load(.stringValue), !text.isEmpty { return text }
         }
         return nil
-    }
-
-    /// Serialize lyrics back to LRC text for the cache.
-    private static func rawText(of lyrics: Lyrics) -> String? {
-        if lyrics.isSynced {
-            return lyrics.lines.map { line in
-                let m = Int(line.time) / 60, s = line.time.truncatingRemainder(dividingBy: 60)
-                return String(format: "[%02d:%05.2f]%@", m, s, line.text)
-            }.joined(separator: "\n")
-        }
-        return lyrics.plain
     }
 }

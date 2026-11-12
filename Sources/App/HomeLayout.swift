@@ -54,8 +54,6 @@ enum HomeCatalog {
     static func name(_ id: String) -> String { items.first { $0.id == id }?.name ?? id }
     static func icon(_ id: String) -> String { items.first { $0.id == id }?.icon ?? "square.grid.2x2" }
     static func zone(_ id: String) -> HomeZone? { items.first { $0.id == id }?.zone }
-    static var tileIDs: [String] { items.filter { $0.zone == .tile }.map(\.id) }
-    static var shelfIDs: [String] { items.filter { $0.zone == .shelf }.map(\.id) }
 }
 
 /// Layout maths for Home, kept out of the views so it can be tested: parsing the two prefs,

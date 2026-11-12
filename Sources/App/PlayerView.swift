@@ -58,7 +58,7 @@ private struct NowPlayingPane: View {
                         .frame(maxWidth: 300)
                         .padding(.top, 32)
                     titleRow.padding(.top, 28)
-                    scrubber.padding(.top, 8)
+                    PlayerScrubber(player: player).padding(.top, 8)
                     transport
                     // Wider gaps around the volume row (#10) — it was crowding the transport
                     // above it and the option icons below.
@@ -123,9 +123,10 @@ private struct NowPlayingPane: View {
             Image(systemName: "ellipsis")
                 .font(.body.weight(.semibold))
                 .foregroundStyle(.white.opacity(0.8))
-                .frame(width: 34, height: 34)
+                .frame(width: 34, height: 34).hitTarget()
                 .glassEffect(.regular.interactive())
         }
+        .accessibilityLabel("More")
     }
 
     /// Tap = like/unlike the current track; hold = the reaction strip, which picks the glyph the
@@ -137,9 +138,8 @@ private struct NowPlayingPane: View {
         return Image(systemName: liked ? "\(likeGlyph).fill" : likeGlyph)
             .font(.body.weight(.semibold))
             .foregroundStyle(liked ? AnyShapeStyle(.tint) : AnyShapeStyle(.white.opacity(0.8)))
-            .frame(width: 34, height: 34)
             // A Menu can't host a custom row of glyphs, so tap and hold are wired by hand.
-            .contentShape(Rectangle())
+            .frame(width: 34, height: 34).hitTarget()
             .onTapGesture {
                 guard var it = item else { return }
                 it.liked.toggle()
@@ -151,6 +151,14 @@ private struct NowPlayingPane: View {
             }
             .opacity(item == nil ? 0.35 : 1)
             .allowsHitTesting(item != nil)
+            .accessibilityLabel("Favourite")
+            .accessibilityValue(liked ? "On" : "Off")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction {
+                guard var it = item else { return }
+                it.liked.toggle()
+                library.update(it)
+            }
             // Inline, not a popover (#9): the strip floats directly above the button in an
             // overlay so it can't push the title row around while it's open.
             .overlay(alignment: .bottomTrailing) {
@@ -211,8 +219,9 @@ private struct NowPlayingPane: View {
                 Image(systemName: "square.and.arrow.up")
                     .font(.body)
                     .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 34, height: 34).hitTarget()
             }
+            .accessibilityLabel("Share")
         } else {
             // Hold the slot so the other four don't shuffle sideways when sharing isn't possible.
             Color.clear.frame(width: 34, height: 34)
@@ -270,21 +279,23 @@ private struct NowPlayingPane: View {
                 Image(systemName: "quote.bubble.fill")
                     .font(.body)
                     .foregroundStyle(hasLyrics ? .white : .white.opacity(0.25))
-                    .frame(width: 34, height: 34)
+                    .frame(width: 34, height: 34).hitTarget()
             }
             .disabled(!hasLyrics)
+            .accessibilityLabel("Lyrics")
             Spacer()
             sleepMenu
             Spacer()
             AirPlayButton()
-                .frame(width: 34, height: 34)
+                .frame(width: 34, height: 34).hitTarget()
             Spacer()
             Button { showQueue = true } label: {
                 Image(systemName: "list.bullet")
                     .font(.body)
                     .foregroundStyle(.white)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 34, height: 34).hitTarget()
             }
+            .accessibilityLabel("Queue")
             Spacer()
             shareButton
         }
@@ -309,24 +320,10 @@ private struct NowPlayingPane: View {
             Image(systemName: coordinator.sleepMinutes != nil ? "moon.fill" : "moon")
                 .font(.body)
                 .foregroundStyle(coordinator.sleepMinutes != nil ? .white : .white.opacity(0.6))
-                .frame(width: 34, height: 34)
+                .frame(width: 34, height: 34).hitTarget()
         }
-    }
-
-    private var scrubber: some View {
-        VStack(spacing: 4) {
-            Slider(value: Binding(get: { min(player.position, max(player.duration, 1)) },
-                                  set: { player.seek(to: $0) }),
-                   in: 0 ... max(player.duration, 1))
-                .tint(.white)
-            HStack {
-                Text(timeString(player.position))
-                Spacer()
-                Text(timeString(player.duration))
-            }
-            .font(.caption2).foregroundStyle(.white.opacity(0.5)).monospacedDigit()
-        }
-        .padding(.top, 8)
+        .accessibilityLabel("Sleep Timer")
+        .accessibilityValue(coordinator.sleepMinutes.map { "\($0) minutes left" } ?? "Off")
     }
 
     private var transport: some View {
@@ -335,11 +332,15 @@ private struct NowPlayingPane: View {
                 Image(systemName: "shuffle")
                     .font(.title3)
                     .foregroundStyle(coordinator.isShuffled ? AnyShapeStyle(.tint) : AnyShapeStyle(.white.opacity(0.6)))
+                    .hitTarget(28)
             }
+            .accessibilityLabel("Shuffle")
+            .accessibilityValue(coordinator.isShuffled ? "On" : "Off")
             Spacer()
             Button { player.previousTrack() } label: {
-                Image(systemName: "backward.fill").font(.title)
+                Image(systemName: "backward.fill").font(.title).hitTarget(34)
             }
+            .accessibilityLabel("Previous")
             Spacer()
             Button { player.toggle() } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
@@ -347,10 +348,12 @@ private struct NowPlayingPane: View {
                     .frame(width: 68, height: 68)
                     .glassEffect(.regular.interactive())
             }
+            .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
             Spacer()
             Button { player.nextTrack() } label: {
-                Image(systemName: "forward.fill").font(.title)
+                Image(systemName: "forward.fill").font(.title).hitTarget(34)
             }
+            .accessibilityLabel("Next")
             Spacer()
             // Tap cycles; hold locks repeat-one and makes tap a no-op until the next hold (#12).
             // Hand-wired like the favourite button above, and for the same reason — a Button with
@@ -359,17 +362,47 @@ private struct NowPlayingPane: View {
             repeatGlyph
                 .font(.title3)
                 .foregroundStyle(coordinator.repeatMode == .off ? AnyShapeStyle(.white.opacity(0.6)) : AnyShapeStyle(.tint))
-                .frame(width: 34, height: 34)
-                .contentShape(Rectangle())
+                .frame(width: 34, height: 34).hitTarget()
                 .onTapGesture { coordinator.cycleRepeat() }
                 .onLongPressGesture(minimumDuration: 0.4) {
                     UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                     withAnimation(.snappy) { coordinator.toggleRepeatLock() }
                 }
+                .accessibilityLabel("Repeat")
+                .accessibilityValue(coordinator.repeatLocked ? "Locked on one"
+                    : coordinator.repeatMode == .off ? "Off"
+                    : coordinator.repeatMode == .one ? "One" : "All")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { coordinator.cycleRepeat() }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, 8)
         .padding(.vertical, 18)
+    }
+}
+
+/// The only part of the player that reads `position`. Kept apart so the 4 Hz tick redraws the
+/// slider and the two time labels, not the whole pane.
+private struct PlayerScrubber: View {
+    let player: Player
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Slider(value: Binding(get: { min(player.position, max(player.duration, 1)) },
+                                  set: { player.seek(to: $0) }),
+                   in: 0 ... max(player.duration, 1))
+                .tint(.white)
+                .accessibilityLabel("Position")
+                .accessibilityValue(timeString(player.position))
+            HStack {
+                Text(timeString(player.position))
+                Spacer()
+                Text(timeString(player.duration))
+            }
+            .font(.caption2).foregroundStyle(.white.opacity(0.5)).monospacedDigit()
+            .accessibilityHidden(true)
+        }
+        .padding(.top, 8)
     }
 
     private func timeString(_ t: TimeInterval) -> String {
@@ -384,6 +417,7 @@ private struct NowPlayingPane: View {
 /// artist pivots to their songs for free. Picking one attaches it to the track and lights it up
 /// in the player immediately.
 struct LyricsFinderSheet: View {
+    @Environment(Coordinator.self) private var coordinator
     @Environment(LibraryStore.self) private var library
     @Environment(\.dismiss) private var dismiss
     let item: LibraryItem
@@ -395,6 +429,8 @@ struct LyricsFinderSheet: View {
     @State private var sort: FinderSort = .relevance
     @State private var syncedOnly = false
     @State private var failed = false
+    @State private var pasting = false
+    @State private var pasted = ""
 
     private var shown: [LRCLibClient.Candidate] {
         sort.apply(syncedOnly ? candidates.filter(\.synced) : candidates)
@@ -427,7 +463,9 @@ struct LyricsFinderSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .primaryAction) { Button("Paste") { pasting = true } }
             }
+            .sheet(isPresented: $pasting) { pasteSheet }
             .safeAreaInset(edge: .bottom) {
                 FinderSearchBar(query: $query, sort: $sort, matchingOnly: $syncedOnly,
                                 filterLabel: "Only synced",
@@ -441,6 +479,27 @@ struct LyricsFinderSheet: View {
             query = [item.artist, item.title].filter { !$0.isEmpty }.joined(separator: " ")
             await search(query)
         }
+    }
+
+    /// Lyrics typed or pasted by hand: LRC, enhanced LRC with word tags, or plain text.
+    private var pasteSheet: some View {
+        NavigationStack {
+            TextEditor(text: $pasted)
+                .font(.system(.body, design: .monospaced))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .padding(.horizontal, 12)
+                .navigationTitle("Paste Lyrics")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { pasting = false } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") { save(pasted) }
+                            .disabled(pasted.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+        }
+        .themedTint()
     }
 
     private func runSearch() {
@@ -459,11 +518,10 @@ struct LyricsFinderSheet: View {
 
     /// Attach, sidecar, and push it into the running player so the lyrics button lights up
     /// without waiting for the next load.
-    private func apply(_ c: LRCLibClient.Candidate) {
-        library.attachLyrics(c.raw, to: item)
-        if let url = player.current?.url {
-            player.attach(lyrics: LRCParser.parse(c.raw), artwork: nil, forURL: url)
-        }
+    private func apply(_ c: LRCLibClient.Candidate) { save(c.raw) }
+
+    private func save(_ raw: String) {
+        coordinator.attachChosenLyrics(raw, to: item)
         dismiss()
     }
 }
@@ -501,28 +559,29 @@ private struct LyricsScreen: View {
                     Image(systemName: "xmark")
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.7))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 34, height: 34).hitTarget()
                         .glassEffect(.regular.interactive())
                 }
+                .accessibilityLabel("Close Lyrics")
             }
             .padding(.top, 14)
 
-            LyricsPane(lyrics: lyrics, position: player.position, tint: lineTint) { player.seek(to: $0) }
+            LyricsPane(lyrics: lyrics, player: player, tint: lineTint)
 
             // The wave alone in a capsule, no name (the top bar carries it) — same pill
             // language as the dock mini player, per reference/files-layer.png. Real audio when
             // AVFoundation can decode the file; Files-style ticks when it can't (VLC-only
             // codecs, remote streams — VLC exposes no decoded samples).
-            WaveScrubber(samples: samples,
-                         position: player.position,
-                         duration: player.duration) { player.seek(to: $0) }
+            LiveWaveScrubber(player: player, samples: samples)
                 .frame(height: 30)
                 .padding(.horizontal, 14).padding(.vertical, 9)
                 // Glass, not a flat white wash — matches the pill language elsewhere.
                 .glassEffect(.regular, in: Capsule())
                 .task(id: player.current?.url) {
                     samples = nil
-                    if let url = player.current?.url { samples = await Waveform.load(url: url) }
+                    guard let url = player.current?.url else { return }
+                    let loaded = await Waveform.load(url: url)
+                    if !Task.isCancelled { samples = loaded }
                 }
 
             HStack {
@@ -532,6 +591,7 @@ private struct LyricsScreen: View {
                         .frame(width: 44, height: 44)
                         .glassEffect(.regular.interactive())
                 }
+                .accessibilityLabel(player.isPlaying ? "Pause" : "Play")
                 Spacer()
                 Button { showQueue = true } label: {
                     Image(systemName: "list.bullet")
@@ -539,11 +599,23 @@ private struct LyricsScreen: View {
                         .frame(width: 44, height: 44)
                         .glassEffect(.regular.interactive())
                 }
+                .accessibilityLabel("Queue")
             }
             .foregroundStyle(.white)
             .padding(.top, 8)
         }
         .padding(.horizontal, 24)
+    }
+}
+
+/// `WaveScrubber` fed from the player. Reads `position`, so it is the view the tick redraws.
+private struct LiveWaveScrubber: View {
+    let player: Player
+    let samples: [Float]?
+
+    var body: some View {
+        WaveScrubber(samples: samples, position: player.position,
+                     duration: player.duration) { player.seek(to: $0) }
     }
 }
 
@@ -618,7 +690,7 @@ private struct QueueSheet: View {
             List {
                 Section {
                     if coordinator.upNext.isEmpty {
-                        Text("Nothing queued — hold a song and Add to Queue.")
+                        Text("Nothing queued. Hold a song and Add to Queue.")
                             .font(.footnote).foregroundStyle(.secondary)
                             .listRowBackground(Color.clear)
                     } else {
@@ -703,12 +775,12 @@ private struct SystemVolumeSlider: UIViewRepresentable {
     }()
 }
 
-/// Synced lyric sheet, Spotify-style: bold lines, active one lit, tap to seek, auto-scroll.
+/// Lyric sheet. Reads `position` only to find the current line; the list below it redraws when
+/// that line changes, not on every tick.
 private struct LyricsPane: View {
     let lyrics: Lyrics
-    let position: TimeInterval
+    let player: Player
     var tint: Color = .white
-    let onSeek: (TimeInterval) -> Void
     @AppStorage(Pref.lyricsFont) private var fontDesign = "system"
     @AppStorage(Pref.lyricsSize) private var fontSize = 22.0
 
@@ -716,26 +788,9 @@ private struct LyricsPane: View {
 
     var body: some View {
         if lyrics.isSynced {
-            let current = lyrics.lineIndex(at: position)
-            ScrollViewReader { proxy in
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 22) {
-                        ForEach(Array(lyrics.lines.enumerated()), id: \.offset) { i, line in
-                            Text(line.text.isEmpty ? "♪" : line.text)
-                                .font(lineFont)
-                                .foregroundStyle(i == current ? AnyShapeStyle(tint) : AnyShapeStyle(.white.opacity(0.35)))
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .id(i)
-                                .onTapGesture { onSeek(line.time + lyrics.offset) }
-                        }
-                    }
-                    .padding(.vertical, 80)
-                }
-                .onChange(of: current) { _, new in
-                    guard let new else { return }
-                    withAnimation(.snappy) { proxy.scrollTo(new, anchor: .center) }
-                }
-            }
+            SyncedLyrics(lyrics: lyrics, current: lyrics.lineIndex(at: player.position),
+                         player: player, tint: tint, font: lineFont)
+                .equatable()
         } else if let plain = lyrics.plain {
             ScrollView {
                 Text(plain)
@@ -744,6 +799,82 @@ private struct LyricsPane: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 40)
             }
+        }
+    }
+}
+
+/// Synced lines, Spotify-style: bold, active one lit, tap to seek, auto-scroll.
+private struct SyncedLyrics: View, Equatable {
+    let lyrics: Lyrics
+    let current: Int?
+    let player: Player
+    let tint: Color
+    let font: Font
+    @AppStorage(Pref.wordLyrics) private var wordByWord = true
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    nonisolated static func == (a: Self, b: Self) -> Bool {
+        a.current == b.current && a.lyrics == b.lyrics && a.tint == b.tint && a.font == b.font
+    }
+
+    private static let dim = Color.white.opacity(0.35)
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 22) {
+                    ForEach(Array(lyrics.lines.enumerated()), id: \.offset) { i, line in
+                        Group {
+                            if i == current, wordByWord, !reduceMotion, !line.text.isEmpty {
+                                WordLine(lyrics: lyrics, words: lyrics.words(forLine: i),
+                                         player: player, tint: tint)
+                            } else {
+                                Text(line.text.isEmpty ? "♪" : line.text)
+                                    .foregroundStyle(i == current ? tint : Self.dim)
+                            }
+                        }
+                        .font(font)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                        .id(i)
+                        .onTapGesture { player.seek(to: line.time + lyrics.offset) }
+                        .accessibilityAddTraits(i == current ? [.isButton, .isSelected] : .isButton)
+                    }
+                }
+                .padding(.vertical, 80)
+            }
+            .onChange(of: current) { _, new in
+                guard let new else { return }
+                if reduceMotion {
+                    proxy.scrollTo(new, anchor: .center)
+                } else {
+                    withAnimation(.snappy) { proxy.scrollTo(new, anchor: .center) }
+                }
+            }
+        }
+    }
+}
+
+/// The current line with each word lit as it is sung. Redraws per frame while playing, and
+/// extrapolates between the player's ticks so words do not land a quarter second late.
+private struct WordLine: View {
+    let lyrics: Lyrics
+    let words: [LyricWord]
+    let player: Player
+    let tint: Color
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !player.isPlaying)) { frame in
+            // Capped: after a pause or a stall `positionDate` is stale until the next tick.
+            let now = player.isPlaying
+                ? player.position + min(max(0, frame.date.timeIntervalSince(player.positionDate)), 0.3)
+                : player.position
+            let sung = lyrics.wordIndex(in: words, at: now) ?? -1
+            Text(words.enumerated().reduce(into: AttributedString()) { line, word in
+                var run = AttributedString(word.element.text)
+                run.foregroundColor = word.offset <= sung ? tint : Color.white.opacity(0.35)
+                line += run
+            })
         }
     }
 }
@@ -839,5 +970,14 @@ private struct QueueRow: View {
                 }
             }
         }
+    }
+}
+
+extension View {
+    /// A 44 pt hit area around a smaller glyph. The layout keeps the drawn size, so nothing
+    /// moves; only the touchable square grows.
+    func hitTarget(_ drawn: CGFloat = 34) -> some View {
+        let pad = max(0, (44 - drawn) / 2)
+        return padding(pad).contentShape(Rectangle()).padding(-pad)
     }
 }

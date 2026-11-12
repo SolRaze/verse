@@ -190,7 +190,7 @@ struct HomeView: View {
     }
 
     private var unlockConfirmation: some View {
-        Text("Create unlocked — swipe right")
+        Text("Create unlocked. Swipe right.")
             .font(.caption.weight(.semibold))
             .padding(.horizontal, 12).padding(.vertical, 6)
             .background(.ultraThinMaterial, in: Capsule())
@@ -534,11 +534,13 @@ struct NowPlayingCard: View {
                         }
                     }
                     Spacer()
-                    Button { player.toggle() } label: {
-                        Image(systemName: player.isPlaying
+                    Button { coordinator.togglePlayback() } label: {
+                        Image(systemName: coordinator.isPlaying
                             ? "pause.circle.fill" : "play.circle.fill")
                             .font(.system(size: size == "small" ? 28 : 36))
+                            .hitTarget(size == "small" ? 28 : 36)
                     }
+                    .accessibilityLabel(coordinator.isPlaying ? "Pause" : "Play")
                     .buttonStyle(.plain)
                     .disabled(idle)
                 }
@@ -562,7 +564,9 @@ struct NowPlayingCard: View {
         .opacity(idle ? 0.7 : 1)
         .task(id: player.current?.url) {
             samples = nil
-            if let url = player.current?.url { samples = await Waveform.load(url: url) }
+            guard let url = player.current?.url else { return }
+            let loaded = await Waveform.load(url: url)
+            if !Task.isCancelled { samples = loaded }
         }
     }
 

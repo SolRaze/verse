@@ -6,7 +6,10 @@ plays most formats | imports youtube / spotify / soundcloud playlists | synced l
 features
 vlc engine | audio + video | mp3 | flac | opus | ogg | ape | mkv
 synced lyrics | sidecar .lrc | embedded tags | lrclib | cached
+word by word lyrics | enhanced lrc tags | lrcmux + netease for word timing | else guessed inside the line
 per-line lyrics on lock screen as live activity
+lyric studio in create | lyric lines over camera or imported video | split | trim | reorder | ghost of last frame for lining up next take | export mp4
+open in verse from files | loose .lrc goes to the track its named after
 youtube streaming | sponsorblock
 playlist import from youtube | spotify | soundcloud | no api keys
 folder-based library | folder tree = organization | play counts | favourites
@@ -62,7 +65,9 @@ download works from any machine | widget + live activity wont run off that build
 structure
 - Sources/Core/Player.swift  vlckit engine | audio + video
 - Sources/Core/NowPlaying.swift  carplay / lock-screen | live activity lyrics
-- Sources/Core/Lyrics.swift  lrc parser | lrclib client | embedded-tag fallback
+- Sources/Core/Lyrics.swift  lrc parser | lrclib client | word timing sources | embedded-tag fallback
+- Sources/Core/StudioTimeline.swift  studio clips | every edit a pure func
+- Sources/Core/StudioComposer.swift  clips + song + lyric layers | preview and export share it
 - Sources/Core/AirPlayVideo.swift  avplayer path | video to car screen
 - Sources/Core/Artwork.swift  cover art cache | two sizes
 - Sources/App/Coordinator.swift  routes between the two engines

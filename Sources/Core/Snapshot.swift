@@ -24,18 +24,27 @@ struct PlaybackSnapshot: Codable, Equatable {
     /// Called by the app on track change and on play/pause. NOT per lyric line — widget timeline
     /// reloads are budgeted (a few dozen a day) and per-line reloads get throttled to nothing.
     /// Per-line lyrics belong in a Live Activity. See SPEC.md.
-    static func write(_ snapshot: PlaybackSnapshot, artwork: UIImage?) {
+    @MainActor static func write(_ snapshot: PlaybackSnapshot, artwork: UIImage?) {
         guard let jsonURL else { return }
         try? JSONEncoder().encode(snapshot).write(to: jsonURL)
-        if let artURL {
+        // The cover is encoded when it changes, not on every play/pause flip.
+        let cover = artwork.map(ObjectIdentifier.init)
+        if let artURL, cover != lastCover || !coverWritten {
             if let png = artwork?.pngData() {
                 try? png.write(to: artURL)
             } else {
                 try? FileManager.default.removeItem(at: artURL)
             }
+            lastCover = cover
+            coverWritten = true
         }
-        WidgetCenter.shared.reloadAllTimelines()
+        WidgetCenter.shared.reloadTimelines(ofKind: widgetKind)
     }
+
+    /// `VerseWidget`'s `StaticConfiguration(kind:)` uses this same string.
+    static let widgetKind = "VerseNowPlaying"
+    @MainActor private static var lastCover: ObjectIdentifier?
+    @MainActor private static var coverWritten = false
 
     static func read() -> PlaybackSnapshot? {
         guard let jsonURL, let data = try? Data(contentsOf: jsonURL) else { return nil }

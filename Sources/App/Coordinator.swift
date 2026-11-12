@@ -51,6 +51,16 @@ final class Coordinator {
     let player = Player()
     let airPlayer = AirPlayVideoPlayer()
 
+    /// Play state and play/pause for whichever engine is live. Controls outside the player
+    /// sheet use these; `player.toggle()` alone is deaf while video plays through AVPlayer.
+    var isPlaying: Bool { engine == .airplay ? airPlayer.isPlaying : player.isPlaying }
+    func togglePlayback() {
+        switch engine {
+        case .vlc: player.toggle()
+        case .airplay: airPlayer.isPlaying ? airPlayer.player.pause() : airPlayer.player.play()
+        }
+    }
+
     // Strong, not unowned: `start` runs inside a detached Task, so a play can outlive whoever
     // created the store, and LibraryStore holds no reference back — there's no cycle to break.
     private let library: LibraryStore
@@ -100,15 +110,18 @@ final class Coordinator {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("queue.json")
     }
-    private struct SavedQueue: Codable { var items: [LibraryItem]; var index: Int }
+    /// Library tracks are saved as ids and looked up again at launch; a `LibraryItem` carries a
+    /// bookmark blob, and playing from Songs queues the whole library. `loose` holds the entries
+    /// the library does not own (playlist streams, search results) in full.
+    private struct SavedQueue: Codable { var ids: [UUID]; var loose: [LibraryItem]; var index: Int }
 
-    /// Coalesced, the same way LibraryStore.save() is. A LibraryItem carries a security-scoped
-    /// bookmark blob, so a long queue is not a small payload to re-encode; encoding it per
-    /// mutation on the main actor costs one full rewrite per skip, and one per element on a
-    /// shuffle.
     private var queueSaveTask: Task<Void, Never>?
+    /// Set by a queue change, cleared by the write. `flushQueue` runs on every trip to the
+    /// background and writes nothing when the queue has not moved.
+    private var queueDirty = false
 
     private func persistQueue() {
+        queueDirty = true
         queueSaveTask?.cancel()
         queueSaveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
@@ -127,8 +140,29 @@ final class Coordinator {
     }
 
     private func writeQueueNow() {
-        try? JSONEncoder().encode(SavedQueue(items: queue, index: queueIndex))
-            .write(to: queueFile, options: .atomic)
+        guard queueDirty else { return }
+        let owned = Set(library.items.map(\.id))
+        let saved = SavedQueue(ids: queue.map(\.id), loose: queue.filter { !owned.contains($0.id) },
+                               index: queueIndex)
+        // Stays dirty on a failed write, so the next flush retries.
+        if (try? JSONEncoder().encode(saved).write(to: queueFile, options: .atomic)) != nil {
+            queueDirty = false
+        }
+    }
+
+    /// Rebuilds a saved queue against the library as it is now. Ids that resolve nowhere are
+    /// dropped, and the index follows the track that was current, counted by position so a
+    /// track queued twice comes back at the right copy.
+    nonisolated static func restore(ids: [UUID], loose: [LibraryItem], index: Int,
+                        library: [LibraryItem]) -> (queue: [LibraryItem], index: Int) {
+        var byID = Dictionary(loose.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        for item in library { byID[item.id] = item }
+        let queue = ids.compactMap { byID[$0] }
+        guard !queue.isEmpty else { return ([], 0) }
+        guard ids.indices.contains(index), byID[ids[index]] != nil else {
+            return (queue, min(max(0, index), queue.count - 1))
+        }
+        return (queue, ids[..<index].filter { byID[$0] != nil }.count)
     }
 
     // MARK: - Sleep timer (Settings › Playback)
@@ -161,12 +195,17 @@ final class Coordinator {
     init(library: LibraryStore) {
         self.library = library
         try? player.activateAudioSession()
+        // A queue file in an older shape fails to decode and starts empty.
         if let data = try? Data(contentsOf: queueFile),
-           let saved = try? JSONDecoder().decode(SavedQueue.self, from: data),
-           !saved.items.isEmpty {
-            queue = saved.items
-            queueIndex = min(saved.index, saved.items.count - 1)
-            primeRestored()
+           let saved = try? JSONDecoder().decode(SavedQueue.self, from: data) {
+            let restored = Self.restore(ids: saved.ids, loose: saved.loose, index: saved.index,
+                                        library: library.items)
+            if !restored.queue.isEmpty {
+                queue = restored.queue
+                queueIndex = restored.index
+                queueDirty = false
+                primeRestored()
+            }
         }
         PlaybackBridge.shared.controls = player
         player.onNext = { [weak self] in self?.advance(auto: false) }
@@ -263,6 +302,57 @@ final class Coordinator {
     }
 
     func skip(_ delta: Int) { step(delta) }
+
+    /// A file handed over by Files or a share sheet ("Open in Verse"). Media is imported and
+    /// played. A loose `.lrc` goes to the one track its filename names (SPEC §3); with no match
+    /// it stays unattached and the user picks through the lyrics finder.
+    func open(external url: URL) {
+        if url.pathExtension.lowercased() == "lrc" {
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            let stem = url.deletingPathExtension().lastPathComponent
+            guard let raw = try? String(contentsOf: url, encoding: .utf8), !raw.isEmpty else {
+                lastError = "Could not read \(url.lastPathComponent)."
+                return
+            }
+            var basenames: [UUID: String] = [:]
+            for item in library.items {
+                basenames[item.id] = library.resolveURL(item)?.deletingPathExtension().lastPathComponent
+            }
+            guard let target = Self.lyricsTarget(stem: stem, in: library.items, basenames: basenames)
+            else {
+                lastError = "No track matches \(url.lastPathComponent). Open the song's lyrics finder and paste them there."
+                return
+            }
+            attachChosenLyrics(raw, to: target)
+        } else if let item = library.add(openedFile: url) {
+            play(item, in: [item])
+        } else {
+            lastError = "Verse cannot play \(url.lastPathComponent)."
+        }
+    }
+
+    /// The one library track a loose lyrics file is named after, case-insensitive: the media
+    /// file's basename first (`basenames`, item id to name), then `Title` or `Artist - Title`.
+    /// Nil when none or more than one fits.
+    nonisolated static func lyricsTarget(stem: String, in items: [LibraryItem],
+                                         basenames: [UUID: String] = [:]) -> LibraryItem? {
+        let want = stem.lowercased()
+        let byFile = items.filter { basenames[$0.id]?.lowercased() == want }
+        if !byFile.isEmpty { return byFile.count == 1 ? byFile[0] : nil }
+        let hits = items.filter {
+            $0.title.lowercased() == want || "\($0.artist) - \($0.title)".lowercased() == want
+        }
+        return hits.count == 1 ? hits[0] : nil
+    }
+
+    /// Lyrics the user chose for `item`: saved, and shown at once when it is the track playing.
+    /// Matched on the queue's item id; streams have no resume key to match on.
+    func attachChosenLyrics(_ raw: String, to item: LibraryItem) {
+        library.attachLyrics(raw, to: item)
+        guard nowPlayingItem?.id == item.id, let url = player.current?.url else { return }
+        player.attach(lyrics: LRCParser.parse(raw), artwork: nil, forURL: url)
+    }
 
     private func q(_ s: String) -> String {
         s.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? s
@@ -371,6 +461,13 @@ final class Coordinator {
             player.attach(lyrics: lyrics, artwork: art, forURL: playbackURL)
             // In-place metadata: whatever the chain found lives beside the file too.
             if lyrics != nil, case .file = item.source { library.exportLyricsSidecar(item) }
+            // Word timing arrives after the line-timed lyrics are already showing. The sidecar
+            // keeps the line-timed text: it may be the user's own file.
+            if let worded = await LyricsResolver.upgradeWords(
+                title: title, artist: item.artist, duration: duration,
+                cacheKey: item.id.uuidString) {
+                player.attach(lyrics: worded, artwork: nil, forURL: playbackURL)
+            }
         }
     }
 

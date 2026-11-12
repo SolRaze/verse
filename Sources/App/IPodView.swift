@@ -65,7 +65,7 @@ struct IPodView: View {
                 Button("MENU") { dismiss() }
                     .font(.system(.footnote, design: .rounded).bold())
                 Spacer()
-                Button { player.toggle() } label: {
+                Button { coordinator.togglePlayback() } label: {
                     Image(systemName: "playpause.fill")
                 }
             }
@@ -78,7 +78,7 @@ struct IPodView: View {
             .frame(width: 220)
             Circle().fill(Color(white: 0.92)).frame(width: 96, height: 96)
                 .shadow(radius: 1, y: 1)
-                .onTapGesture { player.toggle() }
+                .onTapGesture { coordinator.togglePlayback() }
         }
         .foregroundStyle(Color(white: 0.45))
     }

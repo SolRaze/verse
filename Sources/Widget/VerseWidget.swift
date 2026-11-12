@@ -64,7 +64,7 @@ struct VerseWidgetView: View {
 
 struct VerseWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "VerseNowPlaying", provider: VerseProvider()) {
+        StaticConfiguration(kind: PlaybackSnapshot.widgetKind, provider: VerseProvider()) {
             VerseWidgetView(entry: $0)
         }
         .configurationDisplayName("Now Playing")

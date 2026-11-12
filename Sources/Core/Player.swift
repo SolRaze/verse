@@ -52,6 +52,9 @@ final class Player: NSObject {
     private(set) var current: Item?
     private(set) var isPlaying = false
     private(set) var position: TimeInterval = 0
+    /// When `position` was last set. VLC ticks about 4 times a second; word-by-word lyrics
+    /// extrapolate from this between ticks.
+    @ObservationIgnored private(set) var positionDate = Date()
     private(set) var duration: TimeInterval = 0
     private(set) var lyrics: Lyrics?
 
@@ -187,6 +190,7 @@ final class Player: NSObject {
         // VLC only ticks while playing — a paused seek must move the UI (lyric highlight,
         // scrubbers) immediately or nothing appears to happen.
         position = time
+        positionDate = Date()
         lastResumeWrite = time
         nowPlaying.invalidatePublishGate()
         syncNowPlaying()
@@ -204,6 +208,7 @@ extension Player: VLCMediaPlayerDelegate {
     nonisolated func mediaPlayerTimeChanged(_ notification: Notification!) {
         Task { @MainActor in
             position = Double(vlc.time.intValue) / 1000
+            positionDate = Date()
             duration = Double(vlc.media?.length.intValue ?? 0) / 1000
 
             // Apply a saved resume once the length is known; near-the-end saves don't resume.

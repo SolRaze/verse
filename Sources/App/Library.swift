@@ -272,6 +272,9 @@ final class LibraryStore {
     /// Nothing reads this; keeping it out of observation avoids waking the registrar on a
     /// property no view will ever look at.
     @ObservationIgnored private var saveTask: Task<Void, Never>?
+    /// Set by `save`, cleared by the write. `flush` runs on every trip to the background and
+    /// writes nothing when the library has not changed.
+    @ObservationIgnored private var dirty = false
 
     /// Coalesced. Import and the metadata backfill call this once per item, and every call
     /// rewrote all four JSON files in full — a 500-track import wrote the whole library 500
@@ -280,6 +283,7 @@ final class LibraryStore {
     /// ponytail: one debounce covering all four files. Split it per file if one of them ever
     /// grows big enough that writing it on its own is what hurts.
     private func save() {
+        dirty = true
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(250))
@@ -298,10 +302,15 @@ final class LibraryStore {
     }
 
     private func writeNow() {
-        try? JSONEncoder().encode(items).write(to: file, options: .atomic)
-        try? JSONEncoder().encode(customFolders).write(to: foldersFile, options: .atomic)
-        try? JSONEncoder().encode(rootBookmarks).write(to: rootsFile, options: .atomic)
-        try? JSONEncoder().encode(localPlaylists).write(to: localPlaylistsFile, options: .atomic)
+        guard dirty else { return }
+        let encoder = JSONEncoder()
+        // Stays dirty if any write fails, so the next flush retries all four.
+        let ok = [(try? encoder.encode(items).write(to: file, options: .atomic)),
+                  (try? encoder.encode(customFolders).write(to: foldersFile, options: .atomic)),
+                  (try? encoder.encode(rootBookmarks).write(to: rootsFile, options: .atomic)),
+                  (try? encoder.encode(localPlaylists).write(to: localPlaylistsFile, options: .atomic))]
+            .allSatisfy { $0 != nil }
+        if ok { dirty = false }
     }
 
     // MARK: - Local playlists
@@ -483,18 +492,35 @@ final class LibraryStore {
     /// the whole folder. Sibling .lrc / .verse.json are read while the picker scope is held,
     /// since a file's own scope won't reach them later.
     func add(pickedFiles urls: [URL]) {
-        for url in urls {
-            let scoped = url.startAccessingSecurityScopedResource()
-            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            guard Self.mediaExtensions.contains(url.pathExtension.lowercased()),
-                  let item = importFile(url, folders: []) else { continue }
-            let sidecar = url.deletingPathExtension().appendingPathExtension("lrc")
-            if let lrc = try? String(contentsOf: sidecar, encoding: .utf8) {
-                LyricsResolver.attach(lrcText: lrc, cacheKey: item.id.uuidString)
-            }
-        }
+        for url in urls { addFile(url) }
         save()
         Task { await backfillMetadata(); await backfillArtwork(); await onlinePass() }
+    }
+
+    /// One file handed over from outside the app. Returns the track so the caller can play it;
+    /// nil when the extension is not media.
+    /// The same file opened again returns its existing loose track instead of a second row.
+    func add(openedFile url: URL) -> LibraryItem? {
+        let path = url.standardizedFileURL.path
+        if let known = items.first(where: {
+            $0.folders.isEmpty && resolveURL($0)?.standardizedFileURL.path == path
+        }) { return known }
+        guard let item = addFile(url) else { return nil }
+        save()
+        Task { await backfillMetadata(); await backfillArtwork(); await onlinePass() }
+        return item
+    }
+
+    @discardableResult private func addFile(_ url: URL) -> LibraryItem? {
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        guard Self.mediaExtensions.contains(url.pathExtension.lowercased()),
+              let item = importFile(url, folders: []) else { return nil }
+        let sidecar = url.deletingPathExtension().appendingPathExtension("lrc")
+        if let lrc = try? String(contentsOf: sidecar, encoding: .utf8) {
+            LyricsResolver.attach(lrcText: lrc, cacheKey: item.id.uuidString)
+        }
+        return item
     }
 
     /// Auto metadata on import: read embedded title/artist/album tags and associate each track
@@ -870,11 +896,13 @@ final class LibraryStore {
         await lyricsPass(force: true)
     }
 
-    /// Manual lyrics finder (#6g): attach a chosen LRCLIB result to a track, cache it and write
-    /// the `.lrc` sidecar so the choice survives a re-import like any other edit.
+    /// Lyrics the user chose (finder, paste, opened `.lrc`): cached, marked so the word source
+    /// never replaces them, and written over the `.lrc` sidecar so the choice survives a cache
+    /// purge or re-import.
     func attachLyrics(_ raw: String, to item: LibraryItem) {
         LyricsResolver.attach(lrcText: raw, cacheKey: item.id.uuidString)
-        exportLyricsSidecar(item)
+        LyricsResolver.markNoWords(cacheKey: item.id.uuidString)
+        exportLyricsSidecar(item, overwrite: true)
     }
 
     /// Hold-menu "Fetch Lyrics": one track, negative marker cleared so it genuinely retries.
@@ -1205,21 +1233,21 @@ final class LibraryStore {
     /// Called after the resolver chain lands — LRCLIB fetches end up on disk with the music.
     // ponytail: as with writeTagsSidecar, file-imported loose items lack directory scope, so this
     // write may no-op — their lyrics stay in the id-keyed cache. Upgrade path: folder import.
-    func exportLyricsSidecar(_ item: LibraryItem) {
+    /// `overwrite` is only for a user's own pick; resolved lyrics never replace an existing file.
+    func exportLyricsSidecar(_ item: LibraryItem, overwrite: Bool = false) {
         guard let raw = LyricsResolver.cachedRaw(for: item.id.uuidString), !raw.isEmpty else { return }
+        func write(_ url: URL) {
+            guard overwrite || !FileManager.default.fileExists(atPath: url.path) else { return }
+            try? raw.write(to: url, atomically: true, encoding: .utf8)
+        }
         if let media = resolveURL(item), let (base, release) = sidecarBase(for: media) {
             defer { release() }
-            let url = base.appendingPathExtension("lrc")
-            if !FileManager.default.fileExists(atPath: url.path) {
-                try? raw.write(to: url, atomically: true, encoding: .utf8)
-            }
+            write(base.appendingPathExtension("lrc"))
             return
         }
         guard let (media, release) = sidecarScope(for: item) else { return }
         defer { release() }
-        let url = media.deletingPathExtension().appendingPathExtension("lrc")
-        guard !FileManager.default.fileExists(atPath: url.path) else { return }
-        try? raw.write(to: url, atomically: true, encoding: .utf8)
+        write(media.deletingPathExtension().appendingPathExtension("lrc"))
     }
 
     /// Count a play. Silently ignores items that aren't in the library — remote playlist entries

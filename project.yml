@@ -76,6 +76,9 @@ targets:
         NSSupportsLiveActivities: true
         # Background audio. Without this there is no lock screen and no CarPlay.
         UIBackgroundModes: [audio]
+        # Lyric Studio: camera for takes, add-only photos for Save Video. Missing key = kill on request.
+        NSCameraUsageDescription: "Lyric Studio records video takes."
+        NSPhotoLibraryAddUsageDescription: "Lyric Studio saves exported videos."
         # Let Files.app and a Mac drop media straight into the app.
         UIFileSharingEnabled: true
         LSSupportsOpeningDocumentsInPlace: true

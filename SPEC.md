@@ -67,6 +67,14 @@ order for a track, first hit wins:
    send a real `User-Agent`, LRCLIB asks for one and they run it for free.
 4. nothing. show plain lyrics if theres any, else an empty state. dont fake timings.
 
+word timing sits on top of that, never replaces it. `<mm:ss.xx>` tags in a sidecar or pasted lrc
+are real. else after the line lyrics show, ask `https://api.lrcmux.dev/get` (`level=word`,
+`strict=true`, `format=lrc`), then netease `yrc`. take a word result only if its first line starts
+within 2 s of the line lyrics, else its another cut of the song. one answer per track, `.noword`
+marker beside the cache file. failed fetch (offline, timeout, 429, 5xx) writes no marker, next play
+asks again. lyrics i pick or paste get the marker too, word source never replaces them. no word source: spread the words across the real line by length.
+thats a guess inside a real line, line times themself are never guessed.
+
 cache resolved lyrics on disk keyed by the tracks stable id, so the car aint waiting on network.
 
 i drop `.lrc` files in directly too. treat that import as "attach to the track whose basename

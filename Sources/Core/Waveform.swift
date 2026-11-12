@@ -17,9 +17,11 @@ enum Waveform {
            data.count % MemoryLayout<Float>.size == 0 {
             return data.withUnsafeBytes { Array($0.bindMemory(to: Float.self)) }
         }
-        let samples = await Task.detached(priority: .utility) {
-            decode(url: url, buckets: buckets)
-        }.value
+        // Detached work does not inherit cancellation, so it is handed on by hand: skipping
+        // through tracks would otherwise leave one full-file decode running per skip.
+        let work = Task.detached(priority: .utility) { decode(url: url, buckets: buckets) }
+        let samples = await withTaskCancellationHandler { await work.value }
+            onCancel: { work.cancel() }
         if let samples {
             try? samples.withUnsafeBufferPointer { Data(buffer: $0) }.write(to: cacheFile)
         }
@@ -58,6 +60,7 @@ enum Waveform {
         var acc: Double = 0
         var accCount = 0
         while let sb = output.copyNextSampleBuffer() {
+            if Task.isCancelled { reader.cancelReading(); return nil }
             guard let bb = CMSampleBufferGetDataBuffer(sb) else { continue }
             var length = 0
             var ptr: UnsafeMutablePointer<Int8>?

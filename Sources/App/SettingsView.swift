@@ -8,6 +8,7 @@ enum Pref {
     static let theme = "appearance.theme"
     static let carPlayTextFallback = "lyrics.carPlayTextFallback"
     static let lyricsCoverColour = "lyrics.coverColour"
+    static let wordLyrics = "lyrics.wordByWord"   // word highlight + word-timing lookup
     static let sponsorBlock = "playback.sponsorBlock"
     static let showFilePaths = "library.showFilePaths"
     static let tintedBackground = "appearance.tintedBackground"  // player bg from cover colour
@@ -100,6 +101,7 @@ enum Pref {
             librarySections: librarySectionsDefault,
             skipAlreadyFound: true,
             likeGlyph: "heart",
+            wordLyrics: true,
         ])
     }
 
@@ -133,6 +135,7 @@ struct SettingsView: View {
     @AppStorage(Pref.theme) private var theme = ""
     @AppStorage(Pref.carPlayTextFallback) private var carPlayFallback = false
     @AppStorage(Pref.lyricsCoverColour) private var lyricsCoverColour = false
+    @AppStorage(Pref.wordLyrics) private var wordLyrics = true
     @AppStorage(Pref.sponsorBlock) private var sponsorBlock = true
     @AppStorage(Pref.lyricsFont) private var lyricsFont = "system"
     @AppStorage(Pref.lyricsSize) private var lyricsSize = 22.0
@@ -147,7 +150,7 @@ struct SettingsView: View {
     /// surface they'll land on so the list reads by where it'll appear.
     /// (iPod Mode graduated to a beta toggle in Appearance.)
     static let inTheWorks: [(area: String, items: [String])] = [
-        ("Player", ["Stem Player (per-stem audio)", "Karaoke Word Timing"]),
+        ("Player", ["Stem Player (per-stem audio)"]),
         ("Library", ["Jellyfin Servers", "Locations Tab", "Hi-Res / Low-Res Version Picker",
                      "Folder Organize Macro"]),
         ("Home", ["Wrapped (year recap)"]),
@@ -253,11 +256,12 @@ struct SettingsView: View {
                 Section {
                     Toggle("CarPlay Lyrics", isOn: $carPlayFallback)
                     Toggle("Colour From Cover", isOn: $lyricsCoverColour)
+                    Toggle("Word by Word", isOn: $wordLyrics)
                     Toggle("Tinted Background", isOn: $tintedBackground)
                 } header: {
                     Text("Lyrics")
                 } footer: {
-                    Text("CarPlay Lyrics shows the current line in the artist field on CarPlay and the Lock Screen. Colour From Cover tints the active lyric line with the album cover's dominant colour instead of white.")
+                    Text("CarPlay Lyrics shows the current line in the artist field on CarPlay and the Lock Screen. Colour From Cover tints the active lyric line with the album cover's dominant colour instead of white. Word by Word lights each word as it is sung, and looks up word timing online when a song has none.")
                 }
 
                 Section {

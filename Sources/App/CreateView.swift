@@ -12,8 +12,14 @@ struct CreateTile: Codable, Identifiable, Hashable {
 /// The features the + menu offers. v1 ships iPod Mode; more slot in here.
 enum CreateFeature: String, CaseIterable, Identifiable {
     case ipod = "iPod Mode"
+    case studio = "Lyric Studio"
     var id: String { rawValue }
-    var icon: String { switch self { case .ipod: "opticaldisc" } }
+    var icon: String {
+        switch self {
+        case .ipod: "opticaldisc"
+        case .studio: "quote.bubble"
+        }
+    }
 
     /// The sizes this feature's deck may take, as (cols, rows) — nothing in between. Small-icon
     /// features get the three fixed sizes: 1x1 square, 1x2 (one row, two
@@ -21,7 +27,7 @@ enum CreateFeature: String, CaseIterable, Identifiable {
     /// as it lands, rather than everything becoming free-form again.
     var presets: [(cols: Int, rows: Int)] {
         switch self {
-        case .ipod: [(1, 1), (2, 1), (2, 2)]
+        case .ipod, .studio: [(1, 1), (2, 1), (2, 2)]
         }
     }
 
@@ -38,6 +44,7 @@ struct CreatePage: View {
     @AppStorage(Pref.createTiles) private var tilesJSON = ""
     @State private var tiles: [CreateTile] = []
     @State private var showIPod = false
+    @State private var showStudio = false
     @State private var showAdd = false
     @State private var editing = false      // #8: resize/remove only in edit mode
 
@@ -52,7 +59,7 @@ struct CreatePage: View {
                     if tiles.isEmpty {
                         ContentUnavailableView(
                             "Nothing added", systemImage: "square.grid.2x2",
-                            description: Text("Tap + to add a deck. Hold one to edit — drag its corner grip to resize, tap minus to remove."))
+                            description: Text("Tap + to add a deck. Hold one to edit: drag its corner grip to resize, tap minus to remove."))
                             .padding(.top, 60)
                     } else {
                         VStack(alignment: .leading, spacing: gap) {
@@ -83,6 +90,7 @@ struct CreatePage: View {
                     .presentationDetents([.medium, .large])
             }
             .fullScreenCover(isPresented: $showIPod) { IPodView(player: coordinator.player) }
+            .fullScreenCover(isPresented: $showStudio) { StudioView() }
         }
         // Opened by a right-swipe from Home; a left-swipe closes it.
         .gesture(DragGesture(minimumDistance: 30).onEnded { v in
@@ -123,7 +131,11 @@ struct CreatePage: View {
             // Tap launches the feature only when not editing; hold enters edit mode (#8).
             .onTapGesture {
                 guard !editing else { return }
-                if feature == .ipod { showIPod = true }
+                switch feature {
+                case .ipod: showIPod = true
+                case .studio: showStudio = true
+                case nil: break
+                }
             }
             .onLongPressGesture(minimumDuration: 0.4) {
                 withAnimation(.snappy) { editing = true }

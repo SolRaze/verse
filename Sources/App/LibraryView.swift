@@ -2,6 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct LibraryView: View {
+    @AppStorage(Pref.showFilePaths) private var showFilePaths = false
     @Environment(LibraryStore.self) private var library
     @Environment(PlaylistStore.self) private var playlists
     @Environment(Coordinator.self) private var coordinator
@@ -137,7 +138,7 @@ struct LibraryView: View {
                     .disabled(addingLink)
                 }
             }
-            .overlay { if addingLink || coordinator.busy { ProgressView().controlSize(.large) } }
+            .overlay { if addingLink { ProgressView().controlSize(.large) } }
             // The mini player lives on the tab shell (RootView), not here — it has to survive
             // navigation and tab switches. Only the edit-mode bar is this screen's business.
             .safeAreaInset(edge: .bottom) {
@@ -162,12 +163,6 @@ struct LibraryView: View {
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Add") { addLink() }
                 Button("Cancel", role: .cancel) { linkText = "" }
-            }
-            .alert("Something failed", isPresented: .init(
-                get: { coordinator.lastError != nil },
-                set: { if !$0 { coordinator.lastError = nil } })
-            ) { Button("OK", role: .cancel) {} } message: {
-                Text(coordinator.lastError ?? "")
             }
             .alert("New Folder", isPresented: .init(
                 get: { newFolderParent != nil }, set: { if !$0 { newFolderParent = nil } })
@@ -338,7 +333,7 @@ struct LibraryView: View {
     /// Show File Locations turns the disk tree back on.
     @ViewBuilder private func folderContents(path: [String]) -> some View {
         let child = library.children(of: path)
-        let folders = UserDefaults.standard.bool(forKey: Pref.showFilePaths)
+        let folders = showFilePaths
             ? child.folders : library.visibleFolders(at: path)
         if !folders.isEmpty || !child.items.isEmpty {
             Section {
@@ -417,6 +412,7 @@ struct FolderPath: Hashable {
 // MARK: - Folder screen (recursive)
 
 struct FolderView: View {
+    @AppStorage(Pref.showFilePaths) private var showFilePaths = false
     @Environment(LibraryStore.self) private var library
     @Environment(Coordinator.self) private var coordinator
     @State private var editing: LibraryItem?
@@ -466,7 +462,7 @@ struct FolderView: View {
     var body: some View {
         // User-created subfolders only, unless Show File Locations is on (Settings › Library).
         let all = library.children(of: path)
-        let child = (folders: UserDefaults.standard.bool(forKey: Pref.showFilePaths)
+        let child = (folders: showFilePaths
                         ? all.folders : library.visibleFolders(at: path),
                      items: all.items)
         // Plain List with NO editMode environment while browsing — both a selection binding and
